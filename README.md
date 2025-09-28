@@ -1,8 +1,9 @@
 <div align="center">
 
-# ComfyUI
+# ComfyUI - AMD GPU Setup (ROCm 6.4)
 **The most powerful and modular visual AI engine and application.**
 
+*Optimized setup for AMD Radeon RX 7600 XT on Ubuntu 24.04 with ROCm 6.4.4*
 
 [![Website][website-shield]][website-url]
 [![Dynamic JSON Badge][discord-shield]][discord-url]
@@ -34,7 +35,212 @@
 ![ComfyUI Screenshot](https://github.com/user-attachments/assets/7ccaf2c1-9b72-41ae-9a89-5688c94b7abe)
 </div>
 
-ComfyUI lets you design and execute advanced stable diffusion pipelines using a graph/nodes/flowchart based interface. Available on Windows, Linux, and macOS.
+ComfyUI lets you design and execute advanced stable diffusion pipelines using a graph/nodes/flowchart based interface. This fork contains optimized setup instructions for AMD GPUs using ROCm 6.4.4.
+
+## Hardware Requirements
+
+- **GPU**: AMD Radeon RX 7600 XT (16GB VRAM) or similar RDNA3 architecture
+- **OS**: Ubuntu 24.04 Noble Numbat
+- **RAM**: 32GB+ recommended
+- **Storage**: 50GB+ free space for models
+
+## Software Prerequisites
+
+- ROCm 6.4.4 (automatically installed via setup script)
+- Python 3.12.3
+- uv package manager
+- Git
+
+## Quick Start (AMD GPU Setup)
+
+### 1. Clone and Setup Environment
+
+```bash
+# Clone this repository
+git clone https://github.com/mariodbx/ComfyUI.git
+cd ComfyUI
+
+# Create virtual environment with uv
+uv venv
+
+# Activate environment
+source .venv/bin/activate
+
+# Install PyTorch with ROCm 6.4 support
+uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.4
+
+# Install ComfyUI dependencies
+uv pip install -r requirements.txt
+
+# Install additional required packages
+uv pip install opencv-python matplotlib scikit-image tqdm aiohttp
+```
+
+### 2. Install Custom Nodes
+
+```bash
+# ControlNet Auxiliary Preprocessors
+git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git custom_nodes/comfyui_controlnet_aux
+
+# IPAdapter Plus
+git clone https://github.com/cubiq/ComfyUI_IPAdapter_plus.git custom_nodes/ComfyUI_IPAdapter_plus
+
+# Tooling Nodes
+git clone https://github.com/Acly/comfyui-tooling-nodes.git custom_nodes/comfyui-tooling-nodes
+
+# Inpaint Nodes
+git clone https://github.com/Acly/comfyui-inpaint-nodes.git custom_nodes/comfyui-inpaint-nodes
+```
+
+### 3. Download Models
+
+```bash
+# Download all required models automatically
+uv run python download_models.py . --all --backend rocm
+
+# Or download manually:
+# SD 1.5 Base Model
+wget -P models/checkpoints https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt
+
+# SDXL Base Model
+wget -P models/checkpoints https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors
+
+# SDXL Refiner Model
+wget -P models/checkpoints https://huggingface.co/stabilityai/stable-diffusion-xl-refiner-1.0/resolve/main/sd_xl_refiner_1.0.safetensors
+
+# Pixel Art XL (lightweight 2D art model)
+wget -P models/checkpoints https://huggingface.co/OnomaAIResearch/PixelArt-XL/resolve/main/PixelArt-XL.safetensors
+```
+
+### 4. Run ComfyUI
+
+```bash
+# Start ComfyUI server
+uv run python main.py
+
+# Or with specific options
+uv run python main.py --listen 0.0.0.0 --port 8188
+```
+
+Open your browser to `http://127.0.0.1:8188` to access the ComfyUI interface.
+
+## Krita Integration
+
+### Download Krita Plugin
+
+```bash
+# Download latest Krita AI Diffusion plugin
+wget https://github.com/Acly/KritaAIPlugin/releases/latest/download/krita_ai_diffusion-1.39.2.zip
+
+# Extract plugin
+unzip krita_ai_diffusion-1.39.2.zip -d plugin/
+```
+
+### Configure Krita
+
+1. Open Krita
+2. Go to `Settings > Configure Krita > Python Plugin Manager`
+3. Enable the AI Diffusion plugin
+4. Restart Krita
+5. In the AI Diffusion panel, set:
+   - **Server URL**: `http://127.0.0.0:8188`
+   - **Model**: Select your preferred model (SD 1.5, SDXL, or Pixel Art XL)
+
+## Troubleshooting
+
+### GPU Not Detected
+
+If ComfyUI shows CPU-only mode:
+
+```bash
+# Check ROCm installation
+rocm-smi
+
+# Verify PyTorch ROCm support
+uv run python -c "import torch; print('ROCm available:', torch.version.hip is not None); print('GPU count:', torch.cuda.device_count())"
+```
+
+### NumPy Compatibility Issues
+
+If you encounter NumPy errors:
+
+```bash
+# Downgrade NumPy to compatible version
+uv pip install numpy==1.26.4
+```
+
+### Custom Node Import Errors
+
+```bash
+# Install missing dependencies
+uv pip install opencv-python matplotlib scikit-image tqdm aiohttp
+```
+
+### Performance Optimization
+
+For better performance on AMD GPUs:
+
+```bash
+# Enable experimental memory efficient attention
+TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1 uv run python main.py --use-pytorch-cross-attention
+
+# Enable tunable operations (slower first run, faster subsequent)
+PYTORCH_TUNABLEOP_ENABLED=1 uv run python main.py
+```
+
+## Model Recommendations
+
+### Lightweight Models (Good for RX 7600 XT)
+- **Pixel Art XL**: Perfect for 2D art, pixel art, and stylized images
+- **SD 1.5**: Fast generation, good quality-to-speed ratio
+
+### High-Quality Models
+- **SDXL Base + Refiner**: Best quality, requires more VRAM
+- **FLUX.1-dev**: Latest high-quality model (requires significant VRAM)
+
+## Directory Structure
+
+```
+ComfyUI/
+├── models/
+│   ├── checkpoints/     # Main model files (.ckpt, .safetensors)
+│   ├── loras/          # LoRA adaptation files
+│   ├── vae/            # VAE models
+│   ├── controlnet/     # ControlNet models
+│   └── upscale_models/ # Upscaling models
+├── custom_nodes/       # Custom node extensions
+├── input/             # Input images
+├── output/            # Generated images
+├── plugin/            # Krita plugin files
+└── .venv/             # Python virtual environment
+```
+
+## Updating
+
+```bash
+# Pull latest changes
+git pull origin master
+
+# Update dependencies
+uv pip install -r requirements.txt --upgrade
+
+# Update PyTorch if needed
+uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.4 --upgrade
+```
+
+## Support
+
+- **Discord**: [ComfyUI Discord](https://www.comfy.org/discord)
+- **Matrix**: [#comfyui_space:matrix.org](https://app.element.io/#/room/%23comfyui_space%3Amatrix.org)
+- **Website**: [ComfyUI Official Site](https://www.comfy.org/)
+
+## License
+
+This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+*This README is optimized for AMD Radeon RX 7600 XT with ROCm 6.4.4 on Ubuntu 24.04. For other hardware configurations, refer to the [original ComfyUI documentation](https://github.com/comfyanonymous/ComfyUI).* 
 
 ## Get Started
 
