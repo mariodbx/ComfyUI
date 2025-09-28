@@ -56,8 +56,8 @@ ComfyUI lets you design and execute advanced stable diffusion pipelines using a 
 ### 1. Clone and Setup Environment
 
 ```bash
-# Clone this repository
-git clone https://github.com/mariodbx/ComfyUI.git
+# Clone this repository with submodules
+git clone --recursive https://github.com/mariodbx/ComfyUI.git
 cd ComfyUI
 
 # Create virtual environment with uv
@@ -126,14 +126,17 @@ Open your browser to `http://127.0.0.1:8188` to access the ComfyUI interface.
 
 ## Krita Integration
 
-### Download Krita Plugin
+### Setup with Submodule
+
+The Krita AI Diffusion plugin is included as a git submodule for proper version control:
 
 ```bash
-# Download latest Krita AI Diffusion plugin
-wget https://github.com/Acly/KritaAIPlugin/releases/latest/download/krita_ai_diffusion-1.39.2.zip
+# Clone with submodules (recommended)
+git clone --recursive https://github.com/mariodbx/ComfyUI.git
+cd ComfyUI
 
-# Extract plugin
-unzip krita_ai_diffusion-1.39.2.zip -d plugin/
+# If you already cloned without --recursive, initialize submodules:
+git submodule update --init --recursive
 ```
 
 ### Configure Krita
@@ -145,6 +148,18 @@ unzip krita_ai_diffusion-1.39.2.zip -d plugin/
 5. In the AI Diffusion panel, set:
    - **Server URL**: `http://127.0.0.0:8188`
    - **Model**: Select your preferred model (SD 1.5, SDXL, or Pixel Art XL)
+
+### Alternative: Manual Download
+
+If you prefer not to use the submodule:
+
+```bash
+# Download latest Krita AI Diffusion plugin
+wget https://github.com/Acly/krita-ai-diffusion/releases/latest/download/krita_ai_diffusion-1.39.2.zip
+
+# Extract plugin
+unzip krita_ai_diffusion-1.39.2.zip -d plugin/
+```
 
 ## Troubleshooting
 
