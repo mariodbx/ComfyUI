@@ -138,12 +138,7 @@ if __name__ == "__main__":
         if 'CUBLAS_WORKSPACE_CONFIG' not in os.environ:
             os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":4096:8"
 
-    import cuda_malloc
-
-if 'torch' in sys.modules:
-    logging.warning("WARNING: Potential Error in code: Torch already imported, torch should never be imported before this point.")
-
-import comfy.utils
+    import comfy.utils
 
 import execution
 import server
@@ -152,19 +147,6 @@ import nodes
 import comfy.model_management
 import comfyui_version
 import app.logger
-import hook_breaker_ac10a0
-
-def cuda_malloc_warning():
-    device = comfy.model_management.get_torch_device()
-    device_name = comfy.model_management.get_torch_device_name(device)
-    cuda_malloc_warning = False
-    if "cudaMallocAsync" in device_name:
-        for b in cuda_malloc.blacklist:
-            if b in device_name:
-                cuda_malloc_warning = True
-        if cuda_malloc_warning:
-            logging.warning("\nWARNING: this card most likely does not support cuda-malloc, if you get \"CUDA error\" please run ComfyUI with: --disable-cuda-malloc\n")
-
 
 def prompt_worker(q, server_instance):
     current_time: float = 0.0
@@ -232,7 +214,6 @@ def prompt_worker(q, server_instance):
                 comfy.model_management.soft_empty_cache()
                 last_gc_collect = current_time
                 need_gc = False
-                hook_breaker_ac10a0.restore_functions()
 
 
 async def run(server_instance, address='', port=8188, verbose=True, call_on_start=None):
@@ -313,14 +294,11 @@ def start_comfyui(asyncio_loop=None):
         asyncio.set_event_loop(asyncio_loop)
     prompt_server = server.PromptServer(asyncio_loop)
 
-    hook_breaker_ac10a0.save_functions()
     asyncio_loop.run_until_complete(nodes.init_extra_nodes(
         init_custom_nodes=(not args.disable_all_custom_nodes) or len(args.whitelist_custom_nodes) > 0,
         init_api_nodes=not args.disable_api_nodes
     ))
-    hook_breaker_ac10a0.restore_functions()
 
-    cuda_malloc_warning()
     setup_database()
 
     prompt_server.add_routes()

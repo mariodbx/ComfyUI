@@ -166,6 +166,31 @@ def is_ixuca():
         return True
     return False
 
+def is_amd():
+    global cpu_state
+    if cpu_state == CPUState.GPU:
+        if torch.version.hip:
+            return True
+    return False
+
+def amd_min_version(device=None, min_rdna_version=0):
+    if not is_amd():
+        return False
+
+    if is_device_cpu(device):
+        return False
+
+    arch = torch.cuda.get_device_properties(device).gcnArchName
+    if arch.startswith('gfx') and len(arch) == 7:
+        try:
+            cmp_rdna_version = int(arch[4]) + 2
+        except:
+            cmp_rdna_version = 0
+        if cmp_rdna_version >= min_rdna_version:
+            return True
+
+    return False
+
 def get_torch_device():
     global directml_enabled
     global cpu_state
@@ -183,6 +208,8 @@ def get_torch_device():
             return torch.device("npu", torch.npu.current_device())
         elif is_mlu():
             return torch.device("mlu", torch.mlu.current_device())
+        elif is_amd():
+            return torch.device("cuda", 0)
         else:
             return torch.device(torch.cuda.current_device())
 
@@ -216,6 +243,17 @@ def get_total_memory(dev=None, torch_total_too=False):
             _, mem_total_mlu = torch.mlu.mem_get_info(dev)
             mem_total_torch = mem_reserved
             mem_total = mem_total_mlu
+        elif is_amd():
+            # ROCm doesn't provide detailed memory stats, use mem_get_info
+            # Defer CUDA calls to avoid initialization issues during import
+            try:
+                _, mem_total_cuda = torch.cuda.mem_get_info(dev)
+                mem_total = mem_total_cuda
+            except Exception:
+                # Fallback: use a reasonable default for AMD GPUs (16GB)
+                mem_total = 16 * 1024 * 1024 * 1024
+            mem_reserved = 0  # ROCm doesn't provide reserved memory stats
+            mem_total_torch = mem_reserved
         else:
             stats = torch.cuda.memory_stats(dev)
             mem_reserved = stats['reserved_bytes.all.current']
@@ -281,31 +319,6 @@ def is_nvidia():
     if cpu_state == CPUState.GPU:
         if torch.version.cuda:
             return True
-    return False
-
-def is_amd():
-    global cpu_state
-    if cpu_state == CPUState.GPU:
-        if torch.version.hip:
-            return True
-    return False
-
-def amd_min_version(device=None, min_rdna_version=0):
-    if not is_amd():
-        return False
-
-    if is_device_cpu(device):
-        return False
-
-    arch = torch.cuda.get_device_properties(device).gcnArchName
-    if arch.startswith('gfx') and len(arch) == 7:
-        try:
-            cmp_rdna_version = int(arch[4]) + 2
-        except:
-            cmp_rdna_version = 0
-        if cmp_rdna_version >= min_rdna_version:
-            return True
-
     return False
 
 MIN_WEIGHT_MEMORY_RATIO = 0.4
@@ -1025,9 +1038,11 @@ def get_offload_stream(device):
             ss[stream_counter].wait_stream(torch.cuda.current_stream())
         elif is_device_xpu(device):
             ss[stream_counter].wait_stream(torch.xpu.current_stream())
+        elif is_amd():
+            ss[stream_counter].wait_stream(torch.cuda.current_stream())
         stream_counters[device] = stream_counter
         return s
-    elif is_device_cuda(device):
+    elif is_device_cuda(device) or is_amd():
         ss = []
         for k in range(NUM_STREAMS):
             ss.append(torch.cuda.Stream(device=device, priority=0))
@@ -1050,7 +1065,7 @@ def get_offload_stream(device):
 def sync_stream(device, stream):
     if stream is None:
         return
-    if is_device_cuda(device):
+    if is_device_cuda(device) or is_amd():
         torch.cuda.current_stream().wait_stream(stream)
     elif is_device_xpu(device):
         torch.xpu.current_stream().wait_stream(stream)
@@ -1181,6 +1196,13 @@ def get_free_memory(dev=None, torch_free_too=False):
             mem_free_mlu, _ = torch.mlu.mem_get_info(dev)
             mem_free_torch = mem_reserved - mem_active
             mem_free_total = mem_free_mlu + mem_free_torch
+        elif is_amd():
+            # ROCm doesn't provide detailed memory stats, use mem_get_info
+            mem_free_cuda, _ = torch.cuda.mem_get_info(dev)
+            mem_active = 0  # ROCm doesn't provide active memory stats
+            mem_reserved = 0  # ROCm doesn't provide reserved memory stats
+            mem_free_torch = mem_reserved - mem_active
+            mem_free_total = mem_free_cuda + mem_free_torch
         else:
             stats = torch.cuda.memory_stats(dev)
             mem_active = stats['active_bytes.all.current']
@@ -1394,6 +1416,9 @@ def soft_empty_cache(force=False):
         torch.npu.empty_cache()
     elif is_mlu():
         torch.mlu.empty_cache()
+    elif is_amd():
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
     elif torch.cuda.is_available():
         torch.cuda.empty_cache()
         torch.cuda.ipc_collect()
