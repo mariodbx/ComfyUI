@@ -244,14 +244,9 @@ def get_total_memory(dev=None, torch_total_too=False):
             mem_total_torch = mem_reserved
             mem_total = mem_total_mlu
         elif is_amd():
-            # ROCm doesn't provide detailed memory stats, use mem_get_info
-            # Defer CUDA calls to avoid initialization issues during import
-            try:
-                _, mem_total_cuda = torch.cuda.mem_get_info(dev)
-                mem_total = mem_total_cuda
-            except Exception:
-                # Fallback: use a reasonable default for AMD GPUs (16GB)
-                mem_total = 16 * 1024 * 1024 * 1024
+            # ROCm doesn't provide detailed memory stats, use a safe default
+            # Avoid CUDA calls entirely for AMD devices to prevent initialization issues
+            mem_total = 16 * 1024 * 1024 * 1024  # 16GB default for AMD GPUs
             mem_reserved = 0  # ROCm doesn't provide reserved memory stats
             mem_total_torch = mem_reserved
         else:
