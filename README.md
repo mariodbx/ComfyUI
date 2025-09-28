@@ -95,8 +95,8 @@ git clone https://github.com/Acly/comfyui-inpaint-nodes.git custom_nodes/comfyui
 ### 3. Download Models
 
 ```bash
-# Download all required models automatically
-uv run python download_models.py . --all --backend rocm
+# Download all required models automatically (script available via submodule)
+uv run python plugin/scripts/download_models.py . --all --backend rocm
 
 # Or download manually:
 # SD 1.5 Base Model
