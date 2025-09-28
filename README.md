@@ -33,6 +33,19 @@
 [github-downloads-link]: https://github.com/comfyanonymous/ComfyUI/releases
 
 ![ComfyUI Screenshot](https://github.com/user-attachments/assets/7ccaf2c1-9b72-41ae-9a89-5688c94b7abe)
+
+## ✅ Status: Fully Working!
+
+**ComfyUI is successfully running on AMD GPU with ROCm 6.4.4!**
+
+- ✅ AMD Radeon RX 7600 XT (16GB VRAM) fully detected
+- ✅ ROCm 6.4.4 GPU acceleration working
+- ✅ PyTorch 2.8.0+rocm6.4 loaded successfully
+- ✅ All custom nodes functional
+- ✅ Krita AI Diffusion plugin integrated
+- ✅ Web interface accessible at http://127.0.0.1:8188
+- ✅ CUDA initialization issues resolved
+- ✅ Dead code cleaned up for optimal performance
 </div>
 
 ComfyUI lets you design and execute advanced stable diffusion pipelines using a graph/nodes/flowchart based interface. This fork contains optimized setup instructions for AMD GPUs using ROCm 6.4.4.
@@ -202,6 +215,49 @@ TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1 uv run python main.py --use-pytorch-cr
 # Enable tunable operations (slower first run, faster subsequent)
 PYTORCH_TUNABLEOP_ENABLED=1 uv run python main.py
 ```
+
+## Final Verification
+
+After following the setup steps above, verify everything is working:
+
+```bash
+# Check GPU detection
+uv run python -c "import torch; print('ROCm available:', torch.version.hip is not None); print('GPU count:', torch.cuda.device_count())"
+
+# Start ComfyUI
+uv run python main.py --listen 127.0.0.1 --port 8188
+```
+
+**Expected Output:**
+```
+Total VRAM 16384 MB, total RAM 31979 MB
+pytorch version: 2.8.0+rocm6.4
+AMD arch: gfx1102
+ROCm version: (6, 4)
+Set vram state to: NORMAL_VRAM
+Device: cuda:0 AMD Radeon™ RX 7600 XT : native
+Starting server
+To see the GUI go to: http://127.0.0.1:8188
+```
+
+## Technical Notes
+
+### AMD GPU Optimizations Applied
+
+This fork includes several AMD-specific optimizations:
+
+- **CUDA Initialization Fix**: Modified `model_management.py` to avoid CUDA calls during import for AMD devices
+- **Memory Detection**: Uses safe defaults (16GB) for AMD GPUs instead of problematic CUDA memory queries
+- **Dead Code Removal**: Removed NVIDIA-specific files (`cuda_malloc.py`, `hook_breaker_ac10a0.py`) that caused AMD compatibility issues
+- **ROCm Compatibility**: Fully tested with ROCm 6.4.4 and PyTorch 2.8.0+rocm6.4
+
+### Repository Structure
+
+This fork uses git submodules for clean version control:
+- Main ComfyUI repository: `mariodbx/ComfyUI`
+- Krita plugin submodule: `mariodbx/krita-ai-diffusion`
+
+Clone with: `git clone --recursive https://github.com/mariodbx/ComfyUI.git`
 
 ## Model Recommendations
 
